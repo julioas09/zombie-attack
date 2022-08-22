@@ -9,16 +9,19 @@ class Settings:
         self.bg_color = (230, 230, 230)
 
         # Soldier settings
-        self.soldier_limit = 3
-
-        # Bullet settings
-        self.bullet_width = 15
-        self.bullet_height = 3
-        self.bullet_color = (60, 60, 60)
-        self.bullets_allowed = 3
+        self.soldier_limit = 3  
 
         # Zombie settings
-        self.fleet_advance_speed = 30
+        self.horde_advance_speed = 30
+
+        #Bullet settings
+        self.default_bullets_allowed = 3
+        self.default_bullets_width = 15
+        self.default_bullets_color = (60, 60, 60)
+
+        #Weapon settings
+        self.weapon_appear_time = 15000
+        self.weapon_bonus_time = 5000
 
         # How quickly the game speeds up
         self.speedup_scale = 1.1
@@ -33,11 +36,17 @@ class Settings:
         self.bullet_speed = 3.0
         self.zombie_speed = 1.0
 
-        # fleet_direction of 1 represents down; -1 represents up.
-        self.fleet_direction = -1
+        # horde_direction of 1 represents down; -1 represents up.
+        self.horde_direction = -1
 
         # Scoring
         self.zombie_points = 50
+
+        # Bullets
+        self.bullets_allowed = 3
+        self.bullet_color = (60, 60, 60)
+        self.bullet_width = 15
+        self.bullet_height = 3
 
     def increase_speed(self):
         """Increase speed settings and zombie point values."""

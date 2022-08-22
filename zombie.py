@@ -2,7 +2,7 @@ import pygame
 from pygame.sprite import Sprite
  
 class Zombie(Sprite):
-    """A class to represent a single zombie in the fleet."""
+    """A class to represent a single zombie in the horde."""
 
     def __init__(self, ai_game):
         """Initialize the zombie and set its starting position."""
@@ -30,5 +30,5 @@ class Zombie(Sprite):
     def update(self):
         """Move the zombie up of down."""
         self.y += (self.settings.zombie_speed *
-                        self.settings.fleet_direction)
+                        self.settings.horde_direction)
         self.rect.y = self.y

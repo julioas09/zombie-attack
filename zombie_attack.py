@@ -1,5 +1,6 @@
 import sys
 from time import sleep
+import random
 
 import pygame
 
@@ -10,6 +11,7 @@ from button import Button
 from soldier import Soldier
 from bullet import Bullet
 from zombie import Zombie
+from machinegun import Machinegun
 
 
 class ZombieInvasion:
@@ -23,7 +25,7 @@ class ZombieInvasion:
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         self.settings.screen_width = self.screen.get_rect().width
         self.settings.screen_height = self.screen.get_rect().height
-        pygame.display.set_caption("Zombie Invasion")
+        pygame.display.set_caption("Zombie Attack")
 
         # Create an instance to store game statistics,
         #   and create a scoreboard.
@@ -33,8 +35,10 @@ class ZombieInvasion:
         self.soldier = Soldier(self)
         self.bullets = pygame.sprite.Group()
         self.zombies = pygame.sprite.Group()
+        self.machinegun = None
+        self.weapon_start_time = None
 
-        self._create_fleet()
+        self._create_horde()
 
         # Make the Play button.
         self.play_button = Button(self, "Play")
@@ -44,10 +48,12 @@ class ZombieInvasion:
         while True:
             self._check_events()
 
-            if self.stats.game_active:
+            if self.stats.game_active: 
                 self.soldier.update()
                 self._update_bullets()
                 self._update_zombies()
+                self._update_machinegun()
+                self._update_bonus()
 
             self._update_screen()
 
@@ -82,8 +88,8 @@ class ZombieInvasion:
             self.zombies.empty()
             self.bullets.empty()
             
-            # Create a new fleet and center the soldier.
-            self._create_fleet()
+            # Create a new horde and center the soldier.
+            self._create_horde()
             self.soldier.center_soldier()
 
             # Hide the mouse cursor.
@@ -138,21 +144,31 @@ class ZombieInvasion:
             self.sb.check_high_score()
 
         if not self.zombies:
-            # Destroy existing bullets and create new fleet.
+            # Destroy existing bullets and create new horde.
             self.bullets.empty()
-            self._create_fleet()
+            self._create_horde()
             self.settings.increase_speed()
 
             # Increase level.
             self.stats.level += 1
             self.sb.prep_level()
 
+    def _check_bullet_machinegun_collisions(self):
+        """Respond to machinegun-zombie collisions."""
+        # Check bullet-machinegun collisions
+        if pygame.sprite.spritecollideany(self.machinegun, self.bullets):
+            self.machinegun = None
+            self.weapon_start_time = pygame.time.get_ticks()
+            self.settings.bullets_allowed = 15
+            self.settings.bullet_color = (255, 0, 0)
+            self.settings.bullet_width = 25
+
     def _update_zombies(self):
         """
-        Check if the fleet is at an edge,
-          then update the positions of all zombies in the fleet.
+        Check if the horde is at an edge,
+          then update the positions of all zombies in the horde.
         """
-        self._check_fleet_edges()
+        self._check_horde_edges()
         self.zombies.update()
 
         # Look for zombie-soldier collisions.
@@ -171,6 +187,23 @@ class ZombieInvasion:
                 self._soldier_hit()
                 break
 
+    def _update_machinegun(self):
+        """Check machinegun timer and collisions with bullet"""
+        if self.machinegun != None:
+            if self.machinegun.check_timer() >= self.settings.weapon_appear_time:
+                self.machinegun = None
+            else:
+                self._check_bullet_machinegun_collisions()
+
+    def _update_bonus(self):
+        """Check bonus timer in case it should end"""
+        if self.weapon_start_time != None:
+            if pygame.time.get_ticks() - self.weapon_start_time >= self.settings.weapon_bonus_time:
+                self.weapon_start_time = None
+                self.settings.bullets_allowed = self.settings.default_bullets_allowed
+                self.settings.bullet_color = self.settings.default_bullets_color
+                self.settings.bullet_width = self.settings.default_bullets_width
+        
     def _soldier_hit(self):
         """Respond to the soldier being hit by an zombie."""
         if self.stats.soldiers_left > 0:
@@ -182,18 +215,18 @@ class ZombieInvasion:
             self.zombies.empty()
             self.bullets.empty()
             
-            # Create a new fleet and center the soldier.
-            self._create_fleet()
+            # Create a new horde and center the soldier.
+            self._create_horde()
             self.soldier.center_soldier()
             
             # Pause.
             sleep(0.5)
         else:
             self.stats.game_active = False
-            pygame.mouse.set_visible(True)
+            pygame.mouse.set_visible(True)   
 
-    def _create_fleet(self):
-        """Create the fleet of zombies."""
+    def _create_horde(self):
+        """Create the horde of zombies."""
         # Create an zombie and find the number of zombies in a row.
         # Spacing between each zombie is equal to one zombie width.
         zombie = Zombie(self)
@@ -207,7 +240,7 @@ class ZombieInvasion:
                                 (4 * zombie_width) - soldier_width)
         number_columns = available_space_x // (2 * zombie_width)
         
-        # Create the full fleet of zombies.
+        # Create the full horde of zombies.
         for row_number in range(number_columns):
             for zombie_number in range(number_zombies_y):
                 self._create_zombie(zombie_number, row_number)
@@ -221,23 +254,31 @@ class ZombieInvasion:
         zombie.rect.x = zombie.rect.width*5 + 2 * zombie.rect.width * column_number
         self.zombies.add(zombie)
 
-    def _check_fleet_edges(self):
+    def _check_horde_edges(self):
         """Respond appropriately if any zombies have reached an edge."""
         for zombie in self.zombies.sprites():
             if zombie.check_edges():
-                self._change_fleet_direction()
+                self._change_horde_direction()
+                self._create_machinegun()
                 break
             
-    def _change_fleet_direction(self):
-        """Drop the entire fleet and change the fleet's direction."""
+    def _change_horde_direction(self):
+        """Drop the entire horde and change the horde's direction. Also use this moment to creat machinegun"""
         for zombie in self.zombies.sprites():
-            zombie.rect.x -= self.settings.fleet_advance_speed
-        self.settings.fleet_direction *= -1
+            zombie.rect.x -= self.settings.horde_advance_speed
+        self.settings.horde_direction *= -1
+
+    def _create_machinegun(self):
+        # Create machinegun with 5% probability
+        if(random.random() < 0.1 and self.machinegun == None):
+            self.machinegun = Machinegun(self, pygame.time.get_ticks())
 
     def _update_screen(self):
         """Update images on the screen, and flip to the new screen."""
         self.screen.fill(self.settings.bg_color)
         self.soldier.blitme()
+        if (self.machinegun != None):
+            self.machinegun.blitme()
         for bullet in self.bullets.sprites():
             bullet.draw_bullet()
         self.zombies.draw(self.screen)
