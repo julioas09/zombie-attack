@@ -12,6 +12,7 @@ from soldier import Soldier
 from bullet import Bullet
 from zombie import Zombie
 from machinegun import Machinegun
+from monster import Monster
 
 
 class ZombieInvasion:
@@ -37,6 +38,7 @@ class ZombieInvasion:
         self.zombies = pygame.sprite.Group()
         self.machinegun = None
         self.weapon_start_time = None
+        self.monster = None
 
         self._create_horde()
 
@@ -51,9 +53,13 @@ class ZombieInvasion:
             if self.stats.game_active: 
                 self.soldier.update()
                 self._update_bullets()
-                self._update_zombies()
-                self._update_machinegun()
-                self._update_bonus()
+                self._update_zombies() 
+                if self.machinegun != None:
+                    self._update_machinegun()
+                if self.weapon_start_time != None:
+                    self._update_bonus()
+                if self.monster != None:
+                    self._update_monster()
 
             self._update_screen()
 
@@ -130,6 +136,8 @@ class ZombieInvasion:
                  self.bullets.remove(bullet)
 
         self._check_bullet_zombie_collisions()
+        if self.monster != None:
+            self._check_bullet_monster_collisions()
 
     def _check_bullet_zombie_collisions(self):
         """Respond to bullet-zombie collisions."""
@@ -154,14 +162,25 @@ class ZombieInvasion:
             self.sb.prep_level()
 
     def _check_bullet_machinegun_collisions(self):
-        """Respond to machinegun-zombie collisions."""
+        """Respond to machinegun-bullet collisions.""" 
         # Check bullet-machinegun collisions
         if pygame.sprite.spritecollideany(self.machinegun, self.bullets):
-            self.machinegun = None
+            self.machinegun = None 
             self.weapon_start_time = pygame.time.get_ticks()
             self.settings.bullets_allowed = 15
             self.settings.bullet_color = (255, 0, 0)
             self.settings.bullet_width = 25
+
+    def _check_bullet_monster_collisions(self):
+        """Respond to monster-bullet collisions."""
+        # Check bullet-machinegun collisions
+        colliding_bullet = pygame.sprite.spritecollideany(self.monster, self.bullets)
+        self.bullets.remove(colliding_bullet)
+        if colliding_bullet:
+            self.monster.hitpoints -= 1
+            if self.monster.hitpoints < 1:
+                self.monster = None
+                self.stats.score += self.settings.monster_points
 
     def _update_zombies(self):
         """
@@ -179,30 +198,31 @@ class ZombieInvasion:
         self._check_zombies_left()
 
     def _check_zombies_left(self):
-        """Check if any zombies have reached the left side of the screen.""" 
+        """Check if any zombies or monsters have reached the left side of the screen.""" 
         screen_rect = self.screen.get_rect()
         for zombie in self.zombies.sprites():
             if zombie.rect.left <= screen_rect.left:
                 # Treat this the same as if the soldier got hit.
                 self._soldier_hit()
                 break
+        if self.monster != None:
+            if self.monster.rect.left <= screen_rect.left:
+                self._soldier_hit()
 
     def _update_machinegun(self):
         """Check machinegun timer and collisions with bullet"""
-        if self.machinegun != None:
-            if self.machinegun.check_timer() >= self.settings.weapon_appear_time:
-                self.machinegun = None
-            else:
-                self._check_bullet_machinegun_collisions()
+        if self.machinegun.check_timer() >= self.settings.weapon_appear_time:
+            self.machinegun = None
+        else:
+            self._check_bullet_machinegun_collisions()
 
     def _update_bonus(self):
         """Check bonus timer in case it should end"""
-        if self.weapon_start_time != None:
-            if pygame.time.get_ticks() - self.weapon_start_time >= self.settings.weapon_bonus_time:
-                self.weapon_start_time = None
-                self.settings.bullets_allowed = self.settings.default_bullets_allowed
-                self.settings.bullet_color = self.settings.default_bullets_color
-                self.settings.bullet_width = self.settings.default_bullets_width
+        if pygame.time.get_ticks() - self.weapon_start_time >= self.settings.weapon_bonus_time:
+            self.weapon_start_time = None
+            self.settings.bullets_allowed = self.settings.default_bullets_allowed
+            self.settings.bullet_color = self.settings.default_bullets_color
+            self.settings.bullet_width = self.settings.default_bullets_width
         
     def _soldier_hit(self):
         """Respond to the soldier being hit by an zombie."""
@@ -211,9 +231,11 @@ class ZombieInvasion:
             self.stats.soldiers_left -= 1
             self.sb.prep_soldiers()
             
-            # Get rid of any remaining zombies and bullets.
+            # Get rid of any remaining zombies,bonus, monster and bullets.
             self.zombies.empty()
             self.bullets.empty()
+            self.monster = None
+            self.machinegun = None
             
             # Create a new horde and center the soldier.
             self._create_horde()
@@ -237,7 +259,7 @@ class ZombieInvasion:
         # Determine the number of rows of zombie s that fit on the screen.
         soldier_width = self.soldier.rect.width
         available_space_x = (self.settings.screen_width -
-                                (4 * zombie_width) - soldier_width)
+                                (5 * zombie_width) - soldier_width)
         number_columns = available_space_x // (2 * zombie_width)
         
         # Create the full horde of zombies.
@@ -255,12 +277,18 @@ class ZombieInvasion:
         self.zombies.add(zombie)
 
     def _check_horde_edges(self):
-        """Respond appropriately if any zombies have reached an edge."""
+        """Respond appropriately if any zombies have reached an edge.""" 
         for zombie in self.zombies.sprites():
             if zombie.check_edges():
                 self._change_horde_direction()
                 self._create_machinegun()
+                self._create_monster()
                 break
+    
+    def _check_monster_edges(self):
+        """Respond appropriately the monster has reached an edge."""
+        if self.monster!=None and self.monster.check_edges():
+            self._change_monster_direction()
             
     def _change_horde_direction(self):
         """Drop the entire horde and change the horde's direction. Also use this moment to creat machinegun"""
@@ -268,10 +296,35 @@ class ZombieInvasion:
             zombie.rect.x -= self.settings.horde_advance_speed
         self.settings.horde_direction *= -1
 
+    def _change_monster_direction(self):
+        """Change Monster direction"""
+        self.settings.monster_direction *= -1
+
     def _create_machinegun(self):
         # Create machinegun with 5% probability
-        if(random.random() < 0.1 and self.machinegun == None):
+        if(random.random() < self.settings.weapon_frequency and self.machinegun == None):
             self.machinegun = Machinegun(self, pygame.time.get_ticks())
+
+    def _create_monster(self):
+        # Create monster with 5% probability
+        if(random.random() < self.settings.monster_frequency and self.monster == None):
+            self.monster = Monster(self)
+
+    def _update_monster(self):
+        """
+        Check if the monster is at an edge,
+          then update the position.
+        """  
+        self._check_monster_edges()  
+        self.monster.update()
+
+        # Look for monster-soldier collisions.
+        if self.monster != None and self.soldier != None: 
+            if self.monster.rect.colliderect(self.soldier.rect):
+                self._soldier_hit()
+
+        # Look for monster hitting the left side of the screen.
+        self._check_zombies_left()
 
     def _update_screen(self):
         """Update images on the screen, and flip to the new screen."""
@@ -279,6 +332,8 @@ class ZombieInvasion:
         self.soldier.blitme()
         if (self.machinegun != None):
             self.machinegun.blitme()
+        if (self.monster != None):
+            self.monster.blitme()
         for bullet in self.bullets.sprites():
             bullet.draw_bullet()
         self.zombies.draw(self.screen)
@@ -293,7 +348,7 @@ class ZombieInvasion:
         pygame.display.flip()
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  
     # Make a game instance, and run the game.
     ai = ZombieInvasion()
     ai.run_game()

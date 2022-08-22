@@ -14,6 +14,9 @@ class Settings:
         # Zombie settings
         self.horde_advance_speed = 30
 
+        #Monster settings
+        self.monster_frequency = 0.05
+
         #Bullet settings
         self.default_bullets_allowed = 3
         self.default_bullets_width = 15
@@ -22,6 +25,7 @@ class Settings:
         #Weapon settings
         self.weapon_appear_time = 15000
         self.weapon_bonus_time = 5000
+        self.weapon_frequency = 0.15
 
         # How quickly the game speeds up
         self.speedup_scale = 1.1
@@ -39,6 +43,11 @@ class Settings:
         # horde_direction of 1 represents down; -1 represents up.
         self.horde_direction = -1
 
+        # Monster
+        self.monster_speed = 1
+        self.monster_direction = -1
+        self.monster_points = 150
+
         # Scoring
         self.zombie_points = 50
 
@@ -55,3 +64,5 @@ class Settings:
         self.zombie_speed *= self.speedup_scale
 
         self.zombie_points = int(self.zombie_points * self.score_scale)
+        self.monster_points = int(self.monster_points * self.score_scale)
+

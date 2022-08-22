@@ -16,7 +16,7 @@ class Machinegun(Sprite):
         self.image = pygame.image.load('images/machinegun.png')
         self.rect = self.image.get_rect()
 
-        # Start each new zombie near the top right of the screen.
+        # Start emachinegun at random position.
         self.rect.x = random.randint(2*self.rect.width, self.screen.get_rect().width - self.rect.width)
         self.rect.y = random.randint(0, self.screen.get_rect().height)
 
